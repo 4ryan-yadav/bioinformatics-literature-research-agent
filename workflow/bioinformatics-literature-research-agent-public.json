@@ -1,0 +1,288 @@
+{
+  "name": "bioinformatics-literature-research-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Bioinformatics Literature Research Assistant",
+        "formDescription": "Enter a bioinformatics or computational biology topic to generate a concise research brief.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Research Topic",
+              "fieldName": "topic",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "bedaa02e-8e4c-417f-8eb6-e73eb51515ef",
+      "name": "On form submission",
+      "webhookId": "a915dc96-ddc7-43e1-a838-2fe8b07ce663"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "YOUR_SERPER_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": \"={{ $json.topic }} bioinformatics research methods review\",\n  \"num\": 15\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "181b0e7a-5109-4a66-9a24-3217776ab348",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $json.organic || [];\n\nreturn [\n  {\n    json: {\n      results: results.slice(0, 8).map((r, i) => ({\n        rank: i + 1,\n        title: r.title,\n        link: r.link,\n        snippet: r.snippet\n      }))\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "02585f5b-bcbc-4354-90e6-a6cefcfa8452",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a bioinformatics research assistant preparing a concise but useful literature research brief.\n\nResearch topic:\n{{ $('On form submission').item.json.topic }}\n\nWeb search results:\n{{ JSON.stringify($json.results) }}\n\nUsing ONLY the information supported by the supplied search results, prepare a technically useful research brief.\n\nUse this structure:\n\n## 1. Research Overview\nWrite 1–2 short paragraphs explaining:\n- what the topic is\n- why it matters\n- where it is commonly used in bioinformatics/computational biology\n\n## 2. Key Concepts\nExplain 4–6 important concepts needed to understand the topic.\nFor each concept, give a concise but technically accurate explanation.\n\n## 3. Methods and Tools\nDescribe the major methods, algorithms, statistical approaches, or software mentioned in the sources.\nFor important tools, explain:\n- what it does\n- what type of input it uses\n- when it is useful\n- any important limitation mentioned in the sources\n\n## 4. Typical Workflow\nDescribe the typical computational workflow for applying these methods, from input data to final result.\n\nUse numbered steps.\n\n## 5. Important Findings\nSummarize the main findings from the most relevant sources.\nClearly distinguish findings from different sources.\n\n## 6. Biological / Computational Context\nExplain why this topic matters biologically and how it fits into a real bioinformatics analysis pipeline.\n\n## 7. Practical Considerations\nMention important limitations, assumptions, quality-control considerations, or situations where the methods may fail.\n\n## 8. Useful Sources\nList 5 of the most relevant sources.\n\nFor each:\nTitle:\nURL:\nWhy it is useful: one sentence.\n\n## 9. What to Learn Next\nSuggest 4–5 concepts, tools, or techniques that someone should learn next to understand or apply this topic.\n\nIMPORTANT RULES:\n- Use ONLY information supported by the supplied search results.\n- Do not invent facts, papers, statistics, methods, URLs, or experimental results.\n- Do not pretend to have read the full paper if only a search-result snippet is provided.\n- Clearly say when the available search results are insufficient to support a claim.\n- Prefer primary research papers, universities, research institutes, and reputable scientific resources.\n- Do not repeat the same information across sections.\n- Keep the writing concise but technically informative.\n- Target approximately 1000–1500 words.\n- Use normal Markdown.\n- Do NOT output JSON.\n- Do NOT use Markdown hyperlinks. Write URLs directly.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "60cc4631-ec48-4530-a2e8-9f391342d4c9",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        544,
+        208
+      ],
+      "id": "63db8f8a-764a-46ed-88f4-b2b1d93d4cb6",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "jsCode": "let text = $json.output || $json.text || '';\n\ntext = text.replace(/\\\\n/g, '\\n');\n\ntext = text.replace(\n  /\\[([^\\]]+)\\]\\((https?:\\/\\/[^)]+)\\)/g,\n  '$2'\n);\n\ntext = text.replace(/\\\\\\*/g, '*');\n\nreturn [\n  {\n    json: {\n      topic: $('On form submission').item.json.topic,\n      report: text.trim(),\n      generatedAt: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "id": "f401b14a-8352-4310-a9ea-ae4a8a82a635",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "html": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n\n  <title>{{ $json.topic }}</title>\n\n  <style>\n    @page {\n      size: A4;\n      margin: 20mm;\n    }\n\n    body {\n      font-family: Arial, Helvetica, sans-serif;\n      color: #222;\n      line-height: 1.6;\n      font-size: 14px;\n      margin: 0;\n    }\n\n    .container {\n      width: 100%;\n      max-width: 800px;\n      margin: auto;\n    }\n\n    h1 {\n      font-size: 26px;\n      margin: 0 0 5px 0;\n      color: #222;\n    }\n\n    h2 {\n      font-size: 19px;\n      margin-top: 25px;\n      margin-bottom: 10px;\n      padding-bottom: 5px;\n      border-bottom: 1px solid #ddd;\n      color: #222;\n      page-break-after: avoid;\n    }\n\n    h3 {\n      font-size: 16px;\n      margin-top: 18px;\n      margin-bottom: 6px;\n      page-break-after: avoid;\n    }\n\n    .topic {\n      color: #666;\n      font-size: 14px;\n      margin-bottom: 28px;\n    }\n\n    p {\n      margin: 8px 0;\n    }\n\n    ul {\n      margin-top: 8px;\n      margin-bottom: 12px;\n      padding-left: 25px;\n    }\n\n    li {\n      margin-bottom: 7px;\n    }\n\n    strong {\n      font-weight: 700;\n    }\n\n    a {\n      color: #333;\n      word-break: break-all;\n    }\n\n    .footer {\n      margin-top: 35px;\n      padding-top: 10px;\n      border-top: 1px solid #ddd;\n      font-size: 10px;\n      color: #777;\n    }\n\n    .source {\n      margin-bottom: 15px;\n    }\n  </style>\n</head>\n\n<body>\n\n<div class=\"container\">\n\n  <h1>Bioinformatics Research Brief</h1>\n\n  <div class=\"topic\">\n    Topic: {{ $json.topic }}\n  </div>\n\n  <div class=\"report\">\n\n    {{\n      $json.report\n        .replace(/^### (.*)$/gm, '<h3>$1</h3>')\n        .replace(/^## (.*)$/gm, '<h2>$1</h2>')\n        .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n        .replace(/^\\* (.*)$/gm, '<li>$1</li>')\n        .replace(/(<li>.*?<\\/li>)/gs, '<ul>$1</ul>')\n        .replace(/\\n\\n/g, '<br><br>')\n        .replace(/\\n/g, '<br>')\n    }}\n\n  </div>\n\n  <div class=\"footer\">\n    Generated automatically using n8n and Google Gemini.\n  </div>\n\n</div>\n\n</body>\n</html>"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "9b860b41-f80c-4e5c-84e4-38f1c0e1c857",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "documentTemplateId": "85C938C0-B712-4D99-A9F7-702E29EA7579",
+        "payload": "={\n  \"htmlContent\": {{ JSON.stringify($json.html) }}\n}",
+        "filename": "={{ $('Code in JavaScript1').item.json.topic }}.pdf"
+      },
+      "type": "n8n-nodes-pdfmonkey.pdfMonkey",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        0
+      ],
+      "id": "66a5bc7f-9457-4dd0-916e-06b92cd1d76c",
+      "name": "PDFMonkey"
+    },
+    {
+      "parameters": {
+        "operation": "downloadFile",
+        "documentId": "={{ $json.document_card.id }}"
+      },
+      "type": "n8n-nodes-pdfmonkey.pdfMonkey",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        0
+      ],
+      "id": "5b004c21-ef69-4084-8ada-b9c79fb8e3af",
+      "name": "PDFMonkey1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('PDFMonkey1').item.binary.data.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1856,
+        0
+      ],
+      "id": "9cb21e7c-d35d-4623-b311-680635ca26ef",
+      "name": "Upload file"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "PDFMonkey",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDFMonkey": {
+      "main": [
+        [
+          {
+            "node": "PDFMonkey1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDFMonkey1": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "nodeGroups": [],
+  "tags": []
+}
